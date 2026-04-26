@@ -25,10 +25,11 @@ def generate_image_from_prompt(prompt: str, logger_cb=print) -> str:
         "Content-Type": "application/json"
     }
 
-    # API Request Body
+    # API Request Body — 注入美感增强关键词
+    beauty_suffix = "masterpiece, best quality, ultra-detailed, 8k resolution, cinematic lighting, photorealistic, high saturation, vivid colors, beautiful, aesthetically pleasing, visually stunning, Xiaohongshu style, ins style, elegant composition"
     payload = {
         "model": "Kwai-Kolors/Kolors",
-        "prompt": f"{prompt}, masterpiece, best quality, ultra-detailed, 8k resolution, cinematic lighting, photorealistic, high saturation, vivid colors, Xiaohongshu style, ins style",
+        "prompt": f"{prompt}, {beauty_suffix}",
         "image_size": "960x1280",  # 3:4 ratio is optimal for Xiaohongshu
         "batch_size": 1,
         "num_inference_steps": 30,  # Increase steps for better quality
@@ -68,6 +69,33 @@ def generate_image_from_prompt(prompt: str, logger_cb=print) -> str:
     except Exception as e:
         logger_cb(f"[SiliconFlow] 生成或下载失败: {str(e)}")
         raise e
+
+def generate_multiple_images(prompts: list, logger_cb=print) -> list:
+    """
+    Generates multiple images sequentially using SiliconFlow API.
+    Returns a list of absolute paths to the saved image files.
+    """
+    if not prompts:
+        return []
+        
+    logger_cb(f"[SiliconFlow] 🔄 开始批量生成 {len(prompts)} 张配图...")
+    saved_paths = []
+    
+    for i, prompt in enumerate(prompts):
+        logger_cb(f"[SiliconFlow] 🖼️ 正在生成第 {i+1}/{len(prompts)} 张图...")
+        try:
+            # Add sleep to avoid hitting rate limits if any
+            if i > 0:
+                time.sleep(2)
+            path = generate_image_from_prompt(prompt, logger_cb=logger_cb)
+            if path:
+                saved_paths.append(path)
+        except Exception as e:
+            logger_cb(f"[SiliconFlow] ⚠️ 第 {i+1} 张图生成失败: {str(e)}")
+            continue
+            
+    logger_cb(f"[SiliconFlow] ✅ 批量生成结束！成功: {len(saved_paths)}/{len(prompts)}")
+    return saved_paths
 
 if __name__ == "__main__":
     # Test script

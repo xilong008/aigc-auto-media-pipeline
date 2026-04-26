@@ -29,10 +29,11 @@ def generate_image_from_prompt(text_prompt: str, logger_cb=print):
         "x-goog-api-key": api_key
     }
     
+    beauty_suffix = "masterpiece, best quality, ultra-detailed, 8k resolution, cinematic lighting, photorealistic, high saturation, vivid colors, beautiful, aesthetically pleasing, visually stunning, Xiaohongshu style, ins style, elegant composition"
     payload = {
         "instances": [
             {
-                "prompt": text_prompt
+                "prompt": f"{text_prompt}, {beauty_suffix}"
             }
         ],
         "parameters": {
@@ -73,3 +74,30 @@ def generate_image_from_prompt(text_prompt: str, logger_cb=print):
                 error_msg += f" | {e.response.text[:200]}"
         logger_cb(f"[Gemini API] ❌ API 请求失败: {error_msg}")
         return None
+
+def generate_multiple_images(prompts: list, logger_cb=print) -> list:
+    """
+    Generates multiple images sequentially using Gemini API.
+    Returns a list of absolute paths to the saved image files.
+    """
+    if not prompts:
+        return []
+        
+    logger_cb(f"[Gemini API] 🔄 开始批量生成 {len(prompts)} 张配图...")
+    saved_paths = []
+    
+    for i, prompt in enumerate(prompts):
+        logger_cb(f"[Gemini API] 🖼️ 正在生成第 {i+1}/{len(prompts)} 张图...")
+        try:
+            # Add small sleep to avoid hitting rate limits
+            if i > 0:
+                time.sleep(2)
+            path = generate_image_from_prompt(prompt, logger_cb=logger_cb)
+            if path:
+                saved_paths.append(path)
+        except Exception as e:
+            logger_cb(f"[Gemini API] ⚠️ 第 {i+1} 张图生成失败: {str(e)}")
+            continue
+            
+    logger_cb(f"[Gemini API] ✅ 批量生成结束！成功: {len(saved_paths)}/{len(prompts)}")
+    return saved_paths

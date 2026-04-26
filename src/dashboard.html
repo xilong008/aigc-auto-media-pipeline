@@ -37,7 +37,7 @@
                 <h1 class="text-3xl font-extrabold tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-blue-400 to-indigo-500">
                     AIGC 调度大屏
                 </h1>
-                <p class="text-sm text-gray-400 mt-1">全程无人值守小红书自动发布系统</p>
+                <p class="text-sm text-gray-400 mt-1">多渠道 × 多行业 · 全程无人值守自动发布系统</p>
             </div>
             <div class="flex items-center space-x-6">
                 <!-- 引擎状态 -->
@@ -75,11 +75,28 @@
                     </div>
                     <div class="flex flex-col gap-3">
                         <div>
-                            <label class="block text-xs font-medium text-gray-400 mb-1">宽泛领域探索</label>
-                            <input type="text" id="domainInput" class="w-full bg-gray-900/50 border border-gray-600 rounded-md text-sm px-3 py-2 text-white outline-none focus:ring-2 focus:ring-indigo-500 transition-all placeholder-gray-500" placeholder="例如：自媒体运营">
+                            <label class="block text-xs font-medium text-gray-400 mb-1">📺 发布渠道</label>
+                            <select id="channelInput" class="w-full bg-gray-900/50 border border-gray-600 rounded-md text-sm px-3 py-2 text-white outline-none focus:ring-2 focus:ring-indigo-500 transition-all">
+                                <option value="小红书" selected>小红书</option>
+                                <option value="抖音" disabled>抖音 (即将上线)</option>
+                                <option value="知乎" disabled>知乎 (即将上线)</option>
+                                <option value="公众号" disabled>公众号 (即将上线)</option>
+                            </select>
                         </div>
                         <div>
-                            <label class="block text-xs font-medium text-gray-400 mb-1">特定人设语气</label>
+                            <label class="block text-xs font-medium text-gray-400 mb-1">🏭 行业领域 (匹配行业SOP)</label>
+                            <select id="domainInput" class="w-full bg-gray-900/50 border border-gray-600 rounded-md text-sm px-3 py-2 text-white outline-none focus:ring-2 focus:ring-indigo-500 transition-all">
+                                <option value="">通用（不指定行业）</option>
+                                <option value="装修设计">🏠 装修设计 / 全屋定制</option>
+                                <option value="医美口腔">💉 医美口腔 / 皮肤美容</option>
+                                <option value="教育培训">📚 教育培训 / K12招生</option>
+                                <option value="婚庆摄影">💍 婚庆摄影 / 婚纱婚礼</option>
+                                <option value="本地生活">🍜 本地生活 / 餐饮探店</option>
+                                <option value="法律财税">⚖️ 专业服务 / 法律财税</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-xs font-medium text-gray-400 mb-1">🎭 特定人设语气</label>
                             <input type="text" id="personaInput" class="w-full bg-gray-900/50 border border-gray-600 rounded-md text-sm px-3 py-2 text-white outline-none focus:ring-2 focus:ring-indigo-500 transition-all placeholder-gray-500" placeholder="例如：毒舌运营大牛">
                         </div>
                     </div>
@@ -337,19 +354,24 @@
             const domain = document.getElementById('domainInput').value.trim();
             const persona = document.getElementById('personaInput').value.trim();
             const topic = document.getElementById('topicInput').value.trim();
+            const channel = document.getElementById('channelInput').value;
             
             try {
                 const res = await fetch('/api/auto_generate', {
                     method: 'POST',
                     headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify({ domain, persona, topic })
+                    body: JSON.stringify({ domain, persona, topic, channel })
                 });
                 const result = await res.json();
                 
                 if(result.status === 'success') {
                     document.getElementById('title').value = result.data.title || '';
                     document.getElementById('body').value = result.data.body || '';
-                    document.getElementById('prompt').value = result.data.prompt || '';
+                    if (result.data.prompts && result.data.prompts.length > 0) {
+                        document.getElementById('prompt').value = result.data.prompts.join('\n\n');
+                    } else {
+                        document.getElementById('prompt').value = result.data.prompt || '';
+                    }
                     
                     // Trigger a brief green flash on the inputs
                     ['title', 'body', 'prompt'].forEach(id => {
@@ -375,10 +397,12 @@
             const msg = document.getElementById('msg');
             const title = document.getElementById('title').value;
             const body = document.getElementById('body').value;
-            const prompt = document.getElementById('prompt').value;
+            const promptText = document.getElementById('prompt').value;
+            const prompts = promptText.split('\n\n').map(p => p.trim()).filter(p => p);
+            const prompt = prompts.length > 0 ? prompts[0] : '';
             const engine = document.getElementById('engine').value;
 
-            if(!title || !prompt) {
+            if(!title || !promptText) {
                 msg.textContent = '❌ 标题和提示词不可为空！';
                 msg.className = 'text-xs text-center mt-2 text-red-400 block';
                 return;
@@ -391,7 +415,7 @@
                 const res = await fetch('/api/schedule_post', {
                     method: 'POST',
                     headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify({ title, body, prompt, engine })
+                    body: JSON.stringify({ title, body, prompt, prompts, engine })
                 });
 
                 if(res.ok) {

@@ -45,16 +45,20 @@ class LogEmitter:
 G_LOGGER = LogEmitter()
 # ----------------------------------------------------
 
+from typing import List, Optional
+
 class ContentRequest(BaseModel):
     title: str
     body: str
-    prompt: str
+    prompt: Optional[str] = ""
+    prompts: Optional[List[str]] = []
     engine: str = "comfyui"
 
 class GenerateRequest(BaseModel):
     domain: str = ""
     persona: str = ""
     topic: str = ""
+    channel: str = "小红书"
 
 @app.get("/api/stream_logs")
 async def stream_logs(request: Request):
@@ -94,14 +98,17 @@ def process_and_publish(task_id: int, request: ContentRequest):
         conn.execute("UPDATE content_queue SET status='generating_image' WHERE id=?", (task_id,))
         conn.commit()
     
-    # 1. Generate image
+    # 1. Generate image(s)
     try:
+        target_prompts = request.prompts if request.prompts else [request.prompt] if request.prompt else []
+        img_paths = []
+        
         if request.engine == 'gemini':
             import gemini_client
-            img_path = gemini_client.generate_image_from_prompt(request.prompt, logger_cb=G_LOGGER.log)
+            img_paths = gemini_client.generate_multiple_images(target_prompts, logger_cb=G_LOGGER.log)
         elif request.engine == 'siliconflow':
             import siliconflow_client
-            img_path = siliconflow_client.generate_image_from_prompt(request.prompt, logger_cb=G_LOGGER.log)
+            img_paths = siliconflow_client.generate_multiple_images(target_prompts, logger_cb=G_LOGGER.log)
         elif request.engine == 'antigravity':
             G_LOGGER.log(f"[Antigravity] 🛑 任务 #{task_id} 已挂起！请在侧边栏对我说：'帮我为任务 {task_id} 生图'")
             with get_db() as conn:
@@ -109,7 +116,11 @@ def process_and_publish(task_id: int, request: ContentRequest):
                 conn.commit()
             return
         else:
-            img_path = comfyui_client.generate_image_from_prompt(request.prompt, logger_cb=G_LOGGER.log)
+            # ComfyUI
+            for p in target_prompts:
+                path = comfyui_client.generate_image_from_prompt(p, logger_cb=G_LOGGER.log)
+                if path:
+                    img_paths.append(path)
     except Exception as e:
         error_msg = str(e)
         G_LOGGER.log(f"[Generation] 💥 渲染引擎异常: {error_msg}")
@@ -118,22 +129,24 @@ def process_and_publish(task_id: int, request: ContentRequest):
             conn.commit()
         return
     
-    if not img_path:
+    if not img_paths:
         error_msg = "未输出图像"
-        G_LOGGER.log(f"[ComfyUI] ⚠️ 未输出图像，降级取消发布任务。")
+        G_LOGGER.log(f"[Generation] ⚠️ 未输出图像，降级取消发布任务。")
         with get_db() as conn:
             conn.execute("UPDATE content_queue SET status='failed', error_message=? WHERE id=?", (error_msg, task_id))
             conn.commit()
         return
 
+    import json
+    img_paths_str = json.dumps(img_paths)
     with get_db() as conn:
-        conn.execute("UPDATE content_queue SET image_path=?, status='publishing' WHERE id=?", (img_path, task_id))
+        conn.execute("UPDATE content_queue SET image_path=?, status='publishing' WHERE id=?", (img_paths_str, task_id))
         conn.commit()
         
     # 2. Publish
-    G_LOGGER.log(f"[RPA Engine] 🤖 图像/视频就绪。开始唤醒自动化 RPA 直接发布到小红书...")
+    G_LOGGER.log(f"[RPA Engine] 🤖 图像就绪 ({len(img_paths)}张)。开始唤醒自动化 RPA 直接发布到小红书...")
     try:
-        success = rpa_xiaohongshu.publish_note(request.title, request.body, img_path)
+        success = rpa_xiaohongshu.publish_note(request.title, request.body, img_paths)
         if success:
             G_LOGGER.log(f"[RPA Engine] ⭐ 已成功发布到小红书！可在笔记管理中查看。")
             with get_db() as conn:
@@ -171,11 +184,20 @@ def get_status(page: int = 1, limit: int = 5):
         cur.execute("SELECT id, title, body, prompt, image_path, status, error_message FROM content_queue ORDER BY created_at DESC LIMIT ? OFFSET ?", (limit, offset))
         rows = cur.fetchall()
         
+        import json
         result = []
         for r in rows:
             d = dict(r)
             if d.get("image_path"):
-                d["image_url"] = "/outputs/" + os.path.basename(d["image_path"])
+                try:
+                    paths = json.loads(d["image_path"])
+                    if isinstance(paths, list) and len(paths) > 0:
+                        d["image_url"] = "/outputs/" + os.path.basename(paths[0])
+                        d["image_urls"] = ["/outputs/" + os.path.basename(p) for p in paths]
+                    else:
+                        d["image_url"] = "/outputs/" + os.path.basename(d["image_path"])
+                except json.JSONDecodeError:
+                    d["image_url"] = "/outputs/" + os.path.basename(d["image_path"])
             result.append(d)
             
         total_pages = (total + limit - 1) // limit if total > 0 else 1
@@ -193,6 +215,7 @@ def manual_trigger_aigc(req: GenerateRequest = GenerateRequest()):
             domain=req.domain, 
             persona=req.persona, 
             topic_input=req.topic,
+            channel=req.channel,
             logger_cb=G_LOGGER.log
         )
         G_LOGGER.log("[System] ✅ 任务装配完成，即将返回终端。")

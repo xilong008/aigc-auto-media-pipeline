@@ -52,7 +52,7 @@ def check_login_status():
     except Exception as e:
         return {"status": "error", "reason": str(e)}
 
-def publish_note(title: str, content: str, image_path: str):
+def publish_note(title: str, content: str, image_paths):
     if not os.path.exists(PROFILE_PATH):
         raise Exception("No profile found. Please login first.")
         
@@ -70,10 +70,15 @@ def publish_note(title: str, content: str, image_path: str):
             page.goto("https://creator.xiaohongshu.com/publish/publish?from=homepage&target=article")
             time.sleep(3) # Wait for load and stealth passing
             
-            abs_image = os.path.abspath(image_path)
+            # 兼容单图(str)和多图(list)
+            if isinstance(image_paths, str):
+                image_paths = [image_paths]
+                
+            abs_images = [os.path.abspath(p) for p in image_paths]
             
-            # 区分图文和视频发布
-            if abs_image.lower().endswith(('.png', '.jpg', '.jpeg', '.webp')):
+            # 区分图文和视频发布 (通过第一张图判断)
+            first_img = abs_images[0]
+            if first_img.lower().endswith(('.png', '.jpg', '.jpeg', '.webp')):
                 print("Detected image file. Switching to '上传图文' tab...")
                 for el in page.get_by_text("上传图文").all():
                     box = el.bounding_box()
@@ -82,9 +87,22 @@ def publish_note(title: str, content: str, image_path: str):
                         break
                 time.sleep(2)
                 
-            file_input = page.locator("input[type='file']")
-            file_input.set_input_files(abs_image)
-            print("Waiting for editor DOM to render...")
+            try:
+                # Try standard approach first
+                if page.locator("input[type='file']").count() > 0:
+                    file_input = page.locator("input[type='file']").first
+                    file_input.set_input_files(abs_images)
+                else:
+                    # Fallback to robust file chooser intercept (handles hidden inputs / dynamic DOM)
+                    print("No standard input[type='file'] found, using expect_file_chooser...")
+                    with page.expect_file_chooser(timeout=10000) as fc_info:
+                        upload_area = page.locator(".upload-wrapper, .upload-container, .drag-container, .upload-btn").first
+                        upload_area.click(force=True)
+                    file_chooser = fc_info.value
+                    file_chooser.set_files(abs_images)
+            except Exception as e:
+                print(f"File upload error: {e}")
+                raise e
             time.sleep(5)
             
             title_input = None
