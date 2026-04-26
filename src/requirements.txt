@@ -1,0 +1,9 @@
+fastapi
+uvicorn
+playwright
+playwright-stealth
+requests
+pillow
+apscheduler
+pydantic
+duckduckgo-search>=5.3.0

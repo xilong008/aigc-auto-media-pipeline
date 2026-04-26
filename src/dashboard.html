@@ -1,0 +1,508 @@
+<!DOCTYPE html>
+<html lang="zh-CN" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AIGC 自动化任务中枢</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+      tailwind.config = {
+        darkMode: 'class',
+        theme: {
+          extend: {
+            colors: {
+              brand: '#4f46e5',
+            }
+          }
+        }
+      }
+    </script>
+    <style>
+        .glass-panel {
+            background: rgba(30, 41, 59, 0.7);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        body {
+            background: radial-gradient(circle at top right, #1e1b4b, #0f172a);
+        }
+    </style>
+</head>
+<body class="text-gray-100 min-h-screen font-sans antialiased p-6">
+    <div class="max-w-5xl mx-auto space-y-8">
+        <!-- Header -->
+        <header class="flex items-center justify-between">
+            <div>
+                <h1 class="text-3xl font-extrabold tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-blue-400 to-indigo-500">
+                    AIGC 调度大屏
+                </h1>
+                <p class="text-sm text-gray-400 mt-1">全程无人值守小红书自动发布系统</p>
+            </div>
+            <div class="flex items-center space-x-6">
+                <!-- 引擎状态 -->
+                <div class="flex items-center space-x-3">
+                    <span class="flex h-3 w-3 relative">
+                      <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
+                      <span class="relative inline-flex rounded-full h-3 w-3 bg-green-500"></span>
+                    </span>
+                    <span class="text-sm font-medium text-green-400">系统在线，引擎挂载完成</span>
+                </div>
+            </div>
+        </header>
+
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <!-- Form Section -->
+            <div class="md:col-span-1 glass-panel rounded-2xl p-6 shadow-2xl">
+                <div class="flex items-center justify-between mb-4">
+                    <h2 class="text-lg font-semibold text-white flex items-center">
+                        <svg class="w-5 h-5 mr-2 text-indigo-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path></svg>
+                        任务数据舱
+                    </h2>
+                </div>
+                
+                <div class="flex flex-col gap-3 mb-5 p-4 bg-gray-800/40 rounded-xl border border-gray-600/50 shadow-inner">
+                    <div class="text-sm font-semibold text-gray-300 flex items-center justify-between mb-2 border-b border-gray-700 pb-2">
+                        <span>🧠 创作引导参数 (选填)</span>
+                        <button type="button" id="aiBtn" class="px-4 py-2 bg-gradient-to-r from-purple-500 to-indigo-500 hover:from-purple-600 hover:to-indigo-600 rounded-lg shadow-lg shadow-purple-500/30 text-white font-medium transition-all transform hover:scale-105 flex items-center text-sm">
+                            <svg class="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg>
+                            AI 一键构思创作
+                        </button>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-medium text-gray-400 mb-1">核心主题方向</label>
+                        <input type="text" id="topicInput" class="w-full bg-gray-900/50 border border-gray-600 rounded-md text-sm px-3 py-2 text-white outline-none focus:ring-2 focus:ring-indigo-500 transition-all placeholder-gray-500" placeholder="例如：如何用 AI 自动化赚钱">
+                    </div>
+                    <div class="flex flex-col gap-3">
+                        <div>
+                            <label class="block text-xs font-medium text-gray-400 mb-1">宽泛领域探索</label>
+                            <input type="text" id="domainInput" class="w-full bg-gray-900/50 border border-gray-600 rounded-md text-sm px-3 py-2 text-white outline-none focus:ring-2 focus:ring-indigo-500 transition-all placeholder-gray-500" placeholder="例如：自媒体运营">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-medium text-gray-400 mb-1">特定人设语气</label>
+                            <input type="text" id="personaInput" class="w-full bg-gray-900/50 border border-gray-600 rounded-md text-sm px-3 py-2 text-white outline-none focus:ring-2 focus:ring-indigo-500 transition-all placeholder-gray-500" placeholder="例如：毒舌运营大牛">
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 隐藏的错误提示区 -->
+                <p id="aiMsg" class="text-xs text-red-400 mb-3 hidden"></p>
+                
+                <form id="postForm" class="space-y-4">
+                    <div>
+                        <label class="block text-xs font-medium text-gray-400 mb-1">小红书标题</label>
+                        <input type="text" id="title" class="w-full bg-gray-800/50 border border-gray-700 rounded-lg px-3 py-2 text-sm text-white focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none transition-all" placeholder="输入超吸睛标题...">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-medium text-gray-400 mb-1">正文内容</label>
+                        <textarea id="body" rows="3" class="w-full bg-gray-800/50 border border-gray-700 rounded-lg px-3 py-2 text-sm text-white focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none transition-all" placeholder="#带上话题，尽情发挥..."></textarea>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-medium text-gray-400 mb-1">ComfyUI 咒语 (Prompt)</label>
+                        <textarea id="prompt" rows="3" class="w-full bg-gray-800/50 border border-gray-700 rounded-lg px-3 py-2 text-sm text-white focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none transition-all" placeholder="masterpiece, best quality..."></textarea>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-medium text-gray-400 mb-1">渲染引擎</label>
+                        <select id="engine" class="w-full bg-gray-800/50 border border-gray-700 rounded-lg px-3 py-2 text-sm text-white focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none transition-all">
+                            <option value="antigravity">Antigravity 原生生图 (免Token/需对话唤醒我)</option>
+                            <option value="siliconflow" selected>硅基流动 Kolors (国内极速/免费)</option>
+                            <option value="gemini">Gemini Imagen 3 (云端极速/约10秒出图)</option>
+                            <option value="comfyui">本地 ComfyUI (极致视频/约45分钟)</option>
+                        </select>
+                    </div>
+                    <button type="submit" class="w-full py-2.5 px-4 bg-indigo-600 hover:bg-indigo-700 text-white font-medium rounded-lg shadow-lg shadow-indigo-500/30 transition-all transform hover:scale-[1.02] active:scale-[0.98]">
+                        🚀 投递至渲染管线
+                    </button>
+                    <p id="msg" class="text-xs text-center mt-2 hidden"></p>
+                </form>
+
+                <!-- Log Console Area (NEW) -->
+                <div class="mt-6 flex-1 flex flex-col border border-gray-700/50 rounded-lg overflow-hidden bg-black/40 shadow-inner">
+                    <div class="bg-gray-800 border-b border-gray-700 px-3 py-1.5 flex items-center justify-between">
+                        <span class="text-xs font-mono text-gray-400">root@aigc:~# logs</span>
+                        <div class="flex space-x-1.5">
+                            <div class="w-2.5 h-2.5 rounded-full bg-red-500/80"></div>
+                            <div class="w-2.5 h-2.5 rounded-full bg-yellow-500/80"></div>
+                            <div class="w-2.5 h-2.5 rounded-full bg-green-500/80"></div>
+                        </div>
+                    </div>
+                    <div id="logConsole" class="flex-1 p-3 font-mono text-[11px] leading-relaxed text-green-400 overflow-y-auto max-h-[160px] break-words whitespace-pre-wrap">
+                        等待启动指令...
+                    </div>
+                </div>
+
+            </div>
+
+            <!-- Dashboard/Queue Section -->
+            <div class="md:col-span-2 flex flex-col">
+                
+                <!-- Channels Authorization Section -->
+                <div class="glass-panel rounded-2xl p-5 shadow-2xl mb-6">
+                    <div class="flex items-center justify-between mb-3">
+                        <h2 class="text-sm font-semibold text-white flex items-center">
+                            <svg class="w-4 h-4 mr-2 text-pink-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"></path></svg>
+                            分发渠道授权管线
+                        </h2>
+                    </div>
+                    <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
+                        <!-- 小红书 -->
+                        <div id="xhsStatusArea" class="flex flex-col bg-gray-800/50 p-3 rounded-lg border border-gray-700 transition-all">
+                            <div class="flex items-center justify-between mb-2">
+                                <span class="text-xs font-bold text-red-400">小红书</span>
+                                <div class="w-2 h-2 rounded-full bg-gray-500 animate-pulse"></div>
+                            </div>
+                            <span class="text-xs text-gray-400">检测中...</span>
+                        </div>
+                        <!-- 抖音 -->
+                        <div class="flex flex-col bg-gray-800/50 p-3 rounded-lg border border-gray-700 transition-all opacity-60">
+                            <div class="flex items-center justify-between mb-2">
+                                <span class="text-xs font-bold text-gray-300">抖音 (待开发)</span>
+                                <div class="w-2 h-2 rounded-full bg-gray-600"></div>
+                            </div>
+                            <span class="text-xs text-gray-500 mt-1">敬请期待</span>
+                        </div>
+                        <!-- 快手 -->
+                        <div class="flex flex-col bg-gray-800/50 p-3 rounded-lg border border-gray-700 transition-all opacity-60">
+                            <div class="flex items-center justify-between mb-2">
+                                <span class="text-xs font-bold text-orange-400">快手 (待开发)</span>
+                                <div class="w-2 h-2 rounded-full bg-gray-600"></div>
+                            </div>
+                            <span class="text-xs text-gray-500 mt-1">敬请期待</span>
+                        </div>
+                        <!-- 知乎 -->
+                        <div class="flex flex-col bg-gray-800/50 p-3 rounded-lg border border-gray-700 transition-all opacity-60">
+                            <div class="flex items-center justify-between mb-2">
+                                <span class="text-xs font-bold text-blue-400">知乎 (待开发)</span>
+                                <div class="w-2 h-2 rounded-full bg-gray-600"></div>
+                            </div>
+                            <span class="text-xs text-gray-500 mt-1">敬请期待</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Task Queue Section -->
+                <div class="glass-panel rounded-2xl p-6 shadow-2xl flex-1 flex flex-col">
+                <div class="flex items-center justify-between mb-4">
+                    <h2 class="text-lg font-semibold text-white flex items-center">
+                        <svg class="w-5 h-5 mr-2 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                        流水线实时状态
+                    </h2>
+                    <button onclick="fetchStatus()" class="text-xs text-gray-400 hover:text-white transition-colors">手动刷新</button>
+                </div>
+                
+                <div class="flex-1 overflow-auto">
+                    <table class="w-full text-left border-collapse">
+                        <thead>
+                            <tr class="text-xs text-gray-500 border-b border-gray-800">
+                                <th class="pb-3 font-medium">任务ID</th>
+                                <th class="pb-3 font-medium">标题</th>
+                                <th class="pb-3 font-medium">现阶段状态</th>
+                            </tr>
+                        </thead>
+                        <tbody id="taskQueue" class="text-sm divide-y divide-gray-800/50">
+                            <!-- Injected rows -->
+                        </tbody>
+                    </table>
+                    <div id="emptyState" class="hidden flex flex-col items-center justify-center p-8 text-gray-500">
+                        <svg class="w-12 h-12 mb-3 opacity-20" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4"></path></svg>
+                        <p>队列空闲中，尽情压榨机器吧！</p>
+                    </div>
+                    
+                    <!-- Pagination Controls -->
+                    <div id="pagination" class="flex items-center justify-between mt-4 px-2 py-2 border-t border-gray-800/50">
+                        <span id="pageInfo" class="text-xs text-gray-500">共 0 条数据</span>
+                        <div class="flex space-x-2">
+                            <button id="prevPage" onclick="changePage(-1)" class="px-2 py-1 text-xs bg-gray-800 text-gray-300 rounded hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed">上一页</button>
+                            <button id="nextPage" onclick="changePage(1)" class="px-2 py-1 text-xs bg-gray-800 text-gray-300 rounded hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed">下一页</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let currentProgressText = '';
+
+        const statusMap = {
+            'pending': '<span class="px-2 py-1 bg-yellow-500/20 text-yellow-400 rounded-md text-xs border border-yellow-500/30">队中排队 (Pending)</span>',
+            'generating_image': '<span class="px-2 py-1 bg-blue-500/20 text-blue-400 rounded-md text-xs border border-blue-500/30 flex items-center w-max"><svg class="animate-spin -ml-1 mr-2 h-3 w-3 text-blue-400" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg> ComfyUI 运算中...<span class="ml-1 font-mono text-blue-200 comfy-progress-text"></span></span>',
+            'waiting_for_antigravity': '<span class="px-2 py-1 bg-pink-500/20 text-pink-400 rounded-md text-xs border border-pink-500/30">等待 Antigravity 绘图 (请在侧边栏对我说)</span>',
+            'publishing': '<span class="px-2 py-1 bg-purple-500/20 text-purple-400 rounded-md text-xs border border-purple-500/30 flex items-center w-max"><svg class="animate-pulse -ml-1 mr-2 h-3 w-3 text-purple-400" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M3.172 5.172a4 4 0 015.656 0L10 6.343l1.172-1.171a4 4 0 115.656 5.656L10 17.657l-6.828-6.829a4 4 0 010-5.656z" clip-rule="evenodd"></path></svg> RPA 装填提交中...</span>',
+            'done': '<span class="px-2 py-1 bg-green-500/20 text-green-400 rounded-md text-xs border border-green-500/30">已光荣发布 (Done)</span>',
+            'failed': '<span class="px-2 py-1 bg-red-500/20 text-red-400 rounded-md text-xs border border-red-500/30">任务坠毁 (Failed)</span>'
+        };
+
+        let currentTasks = [];
+        let currentPage = 1;
+        const limit = 5;
+
+        async function fetchStatus() {
+            try {
+                const res = await fetch(`/api/status?page=${currentPage}&limit=${limit}`);
+                const data = await res.json();
+                currentTasks = data.queue;
+                const tbody = document.getElementById('taskQueue');
+                const empty = document.getElementById('emptyState');
+                
+                if(data.queue.length === 0) {
+                    tbody.innerHTML = '';
+                    empty.classList.remove('hidden');
+                    document.getElementById('pageInfo').innerText = '暂无数据';
+                    document.getElementById('prevPage').disabled = true;
+                    document.getElementById('nextPage').disabled = true;
+                    return;
+                }
+                
+                empty.classList.add('hidden');
+                tbody.innerHTML = data.queue.map(task => {
+                    let statusHtml = statusMap[task.status] || task.status;
+                    if (task.status === 'failed' && task.error_message) {
+                        const safeMsg = task.error_message.replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+                        statusHtml += `<div class="mt-1 text-[11px] text-red-400/80 max-w-[200px] break-words line-clamp-2 cursor-pointer hover:text-red-300" title="点击展开/收起报错详情" onclick="event.stopPropagation(); this.classList.toggle('line-clamp-2'); this.classList.toggle('line-clamp-none');">⚠️ ${safeMsg}</div>`;
+                    }
+                    return `
+                    <tr class="hover:bg-gray-800/50 transition-colors cursor-pointer group" onclick="loadTaskDetails(${task.id})" title="点击查看并重新编辑任务内容">
+                        <td class="py-3 px-2 text-gray-500 align-top">#${task.id}</td>
+                        <td class="py-3 text-gray-200 font-medium align-top">
+                            <div class="truncate max-w-[200px] group-hover:text-indigo-400">${task.title}</div>
+                            ${task.image_url ? `<div class="mt-2"><img src="${task.image_url}" class="h-16 w-12 object-cover rounded shadow border border-gray-700" alt="Generated Image"/></div>` : ''}
+                        </td>
+                        <td class="py-3 align-top">${statusHtml}</td>
+                    </tr>
+                    `;
+                }).join('');
+                
+                // Update pagination info
+                document.getElementById('pageInfo').innerText = `第 ${data.page} / ${data.total_pages} 页 (共 ${data.total} 条)`;
+                document.getElementById('prevPage').disabled = data.page <= 1;
+                document.getElementById('nextPage').disabled = data.page >= data.total_pages || data.total_pages === 0;
+                
+                document.querySelectorAll('.comfy-progress-text').forEach(el => el.innerText = currentProgressText);
+            } catch(e) {
+                console.error("无法连接到中枢调度 API");
+            }
+        }
+        
+        function changePage(delta) {
+            currentPage += delta;
+            fetchStatus();
+        }
+
+        function loadTaskDetails(id) {
+            const task = currentTasks.find(t => t.id === id);
+            if(task) {
+                document.getElementById('title').value = task.title || '';
+                document.getElementById('body').value = task.body || '';
+                document.getElementById('prompt').value = task.prompt || '';
+                
+                ['title', 'body', 'prompt'].forEach(elemId => {
+                    const el = document.getElementById(elemId);
+                    el.classList.add('ring-2', 'ring-indigo-400');
+                    setTimeout(() => el.classList.remove('ring-2', 'ring-indigo-400'), 1000);
+                });
+                
+                document.getElementById('postForm').scrollIntoView({behavior: 'smooth', block: 'center'});
+            }
+        }
+
+        function initLogStream() {
+            if(window.logStream) window.logStream.close();
+            const logBox = document.getElementById('logConsole');
+            if (logBox.innerHTML.includes("等待启动指令")) {
+                logBox.innerHTML = '';
+            }
+            window.logStream = new EventSource('/api/stream_logs');
+            window.logStream.onmessage = function(event) {
+                const p = document.createElement('div');
+                p.innerHTML = event.data;
+                logBox.appendChild(p);
+                logBox.scrollTop = logBox.scrollHeight;
+            };
+            window.logStream.onerror = function() {
+                window.logStream.close();
+                setTimeout(initLogStream, 3000); // 断线自动重连
+            };
+        }
+
+        document.getElementById('aiBtn').addEventListener('click', async (e) => {
+            const btn = e.target;
+            const originalText = btn.innerHTML;
+            const msg = document.getElementById('aiMsg');
+            btn.disabled = true;
+            btn.innerHTML = '脑暴思考中...';
+            msg.classList.add('hidden');
+            initLogStream(); // 确保终端监听启动
+            
+            const domain = document.getElementById('domainInput').value.trim();
+            const persona = document.getElementById('personaInput').value.trim();
+            const topic = document.getElementById('topicInput').value.trim();
+            
+            try {
+                const res = await fetch('/api/auto_generate', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({ domain, persona, topic })
+                });
+                const result = await res.json();
+                
+                if(result.status === 'success') {
+                    document.getElementById('title').value = result.data.title || '';
+                    document.getElementById('body').value = result.data.body || '';
+                    document.getElementById('prompt').value = result.data.prompt || '';
+                    
+                    // Trigger a brief green flash on the inputs
+                    ['title', 'body', 'prompt'].forEach(id => {
+                        const el = document.getElementById(id);
+                        el.classList.add('ring-2', 'ring-green-400');
+                        setTimeout(() => el.classList.remove('ring-2', 'ring-green-400'), 1000);
+                    });
+                } else {
+                    throw new Error(result.detail || '大模型脱机');
+                }
+            } catch(err) {
+                msg.textContent = '❌ ' + err.message;
+                msg.classList.remove('hidden');
+            } finally {
+                btn.disabled = false;
+                btn.innerHTML = originalText;
+            }
+        });
+
+        document.getElementById('postForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const btn = e.target.querySelector('button');
+            const msg = document.getElementById('msg');
+            const title = document.getElementById('title').value;
+            const body = document.getElementById('body').value;
+            const prompt = document.getElementById('prompt').value;
+            const engine = document.getElementById('engine').value;
+
+            if(!title || !prompt) {
+                msg.textContent = '❌ 标题和提示词不可为空！';
+                msg.className = 'text-xs text-center mt-2 text-red-400 block';
+                return;
+            }
+
+            btn.disabled = true;
+            btn.innerHTML = '发送中...';
+            
+            try {
+                const res = await fetch('/api/schedule_post', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({ title, body, prompt, engine })
+                });
+
+                if(res.ok) {
+                    msg.innerHTML = '✅ 已经光速推入管线，准备起飞！';
+                    msg.className = 'text-xs text-center mt-2 text-green-400 block';
+                    setTimeout(() => { msg.classList.add('hidden'); }, 3000);
+                    e.target.reset();
+                    fetchStatus();
+                } else {
+                    throw new Error('API Reject');
+                }
+            } catch(e) {
+                msg.textContent = '❌ 提交坠毁：' + e.message;
+                msg.className = 'text-xs text-center mt-2 text-red-400 block';
+            } finally {
+                btn.disabled = false;
+                btn.innerHTML = '🚀 投递至渲染管线';
+            }
+        });
+
+        // 首次加载并开启 2 秒超高频轮询
+        fetchStatus();
+        setInterval(fetchStatus, 2000);
+
+        // 建立 ComfyUI 专属 WebSocket 监听进度
+        let comfyWs = null;
+        function connectComfyWS() {
+            try {
+                const wsUrl = `ws://${window.location.hostname}:8188/ws?clientId=dashboard`;
+                comfyWs = new WebSocket(wsUrl);
+                comfyWs.onmessage = (event) => {
+                    if (typeof event.data !== 'string') return;
+                    try {
+                        const msg = JSON.parse(event.data);
+                        if (msg.type === 'progress') {
+                            const { value, max } = msg.data;
+                            const pct = Math.round((value / max) * 100);
+                            currentProgressText = `(${value}/${max} - ${pct}%)`;
+                            document.querySelectorAll('.comfy-progress-text').forEach(el => el.innerText = currentProgressText);
+                        } else if (msg.type === 'executing' && !msg.data.node) {
+                            currentProgressText = '(即将完成...)';
+                            document.querySelectorAll('.comfy-progress-text').forEach(el => el.innerText = currentProgressText);
+                        }
+                    } catch(e) {}
+                };
+                comfyWs.onclose = () => { setTimeout(connectComfyWS, 5000); };
+            } catch(err) {
+                console.error('WebSocket connection failed:', err);
+            }
+        }
+        connectComfyWS();
+
+        // 账号绑定状态检测与重新授权逻辑
+        async function checkAccountStatus() {
+            const area = document.getElementById('xhsStatusArea');
+            try {
+                const res = await fetch('/api/account_status');
+                const data = await res.json();
+                
+                if (data.status === 'valid') {
+                    area.innerHTML = `
+                        <div class="flex items-center justify-between mb-2">
+                            <span class="text-xs font-bold text-red-400">小红书</span>
+                            <div class="w-2 h-2 rounded-full bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.8)]"></div>
+                        </div>
+                        <span class="text-xs text-green-400 font-medium">✅ 已授权连通</span>
+                    `;
+                    area.className = "flex flex-col bg-green-900/10 p-3 rounded-lg border border-green-500/30 transition-all";
+                } else {
+                    area.innerHTML = `
+                        <div class="flex items-center justify-between mb-2">
+                            <span class="text-xs font-bold text-red-400">小红书</span>
+                            <div class="w-2 h-2 rounded-full bg-red-500 shadow-[0_0_8px_rgba(239,68,68,0.8)]"></div>
+                        </div>
+                        <button onclick="triggerLogin()" class="w-full mt-1 px-2 py-1 bg-gradient-to-r from-red-500 to-rose-600 hover:from-red-600 hover:to-rose-700 text-white text-[10px] rounded shadow transition-transform transform hover:scale-105 active:scale-95">重新扫码授权</button>
+                    `;
+                    area.className = "flex flex-col bg-red-900/10 p-3 rounded-lg border border-red-500/30 transition-all";
+                }
+            } catch (e) {
+                area.innerHTML = `
+                    <div class="flex items-center justify-between mb-2">
+                        <span class="text-xs font-bold text-red-400">小红书</span>
+                        <div class="w-2 h-2 rounded-full bg-yellow-500"></div>
+                    </div>
+                    <span class="text-xs text-gray-500">检测超时</span>
+                `;
+            }
+        }
+
+        async function triggerLogin() {
+            if(confirm("这将在运行此系统的电脑屏幕上弹出一个真实的浏览器窗口，确定要进行重新授权吗？")) {
+                const area = document.getElementById('xhsStatusArea');
+                area.innerHTML = `
+                    <div class="flex items-center justify-between mb-2">
+                        <span class="text-xs font-bold text-red-400">小红书</span>
+                        <div class="w-2 h-2 rounded-full bg-yellow-500 animate-pulse"></div>
+                    </div>
+                    <span class="text-[10px] text-yellow-400">等待扫码中...</span>
+                `;
+                try {
+                    await fetch('/api/trigger_login', {method: 'POST'});
+                    alert("✅ 已在系统桌面打开浏览器，请您去扫码登录！\n\n扫码成功看到创作者后台后，请关闭那个浏览器，然后回来刷新本页面。");
+                } catch(e) {
+                    alert("唤起浏览器失败");
+                }
+            }
+        }
+
+        // 首次启动时校验状态与全局日志监听
+        checkAccountStatus();
+        initLogStream();
+    </script>
+</body>
+</html>

@@ -1,0 +1,53 @@
+# Environments
+.env
+.venv
+env/
+venv/
+ENV/
+env.bak/
+venv.bak/
+
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Local Databases
+*.db
+*.sqlite3
+
+# Project specific ignores
+src/outputs/
+src/xhs_profile/
+src/publish_proof.png
+
+# IDEs and Editors
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+src/xhs_profile_backup/
+
+# Temp and test files
+*.code-workspace
+*.txt
+*.png
+!src/publish_proof.png
+content_output/
+test_*.py
+src/test_*.py
+debug_*.py
+fix_*.py
+run_*.py
+src/investigate_*.py
+*.md
+!README.md
