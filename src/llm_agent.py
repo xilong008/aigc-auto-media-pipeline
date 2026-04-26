@@ -177,7 +177,7 @@ def generate_content_payload(domain: str = "", persona: str = "", topic_input: s
     包含以下三个核心字段：
     - "title": (带Emoji，悬念+痛点结合，20字以内，要有极强的点击欲望)
     - "body": (必须是一篇800~1000字的深度长文。要求：1. 开篇直击痛点或抛出反常识观点；2. 中间提供2-3个干货十足、极其专业的实战经验或独家洞察；3. 语气真诚、干脆、金句频出；4. 在结尾处必须设置引流钩子（Call to Action），用专业的话术引导客户在评论区留言、或者私信咨询定制方案/获取核心资料；5. 结尾带上3-5个相关话题标签#)
-    - "prompt": (提取文章核心意象，写一段用于 ComfyUI 生成高端封面的纯正英文提示词，必须以 masterpiece, ultra-detailed, best quality 开头，包含光影、材质、构图等细节描述)
+    - "prompt": (提取文章核心意象，写一段用于 AI 绘画生成高端封面的纯正英文提示词。要求：1. 必须包含具体的主体描述、环境背景、光影氛围（如 cinematic lighting, soft natural light）、材质细节；2. 整体风格要贴合“小红书爆款高级感（ins style, elegant, trendy, professional photography）”，画面要极度吸睛；3. 长度控制在 30-50 个英文单词，逗号分隔。)
     """
     
     final_output = _get_llm_response(synthesis_prompt, sys_prompt=sys_prompt, max_tokens=2500)

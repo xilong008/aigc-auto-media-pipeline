@@ -28,9 +28,11 @@ def generate_image_from_prompt(prompt: str, logger_cb=print) -> str:
     # API Request Body
     payload = {
         "model": "Kwai-Kolors/Kolors",
-        "prompt": prompt,
-        "image_size": "1024x1024",
-        "batch_size": 1
+        "prompt": f"{prompt}, masterpiece, best quality, ultra-detailed, 8k resolution, cinematic lighting, photorealistic, high saturation, vivid colors, Xiaohongshu style, ins style",
+        "image_size": "960x1280",  # 3:4 ratio is optimal for Xiaohongshu
+        "batch_size": 1,
+        "num_inference_steps": 30,  # Increase steps for better quality
+        "guidance_scale": 7.5
     }
 
     try:
