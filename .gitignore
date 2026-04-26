@@ -51,3 +51,4 @@ run_*.py
 src/investigate_*.py
 *.md
 !README.md
+!docs/*.md
